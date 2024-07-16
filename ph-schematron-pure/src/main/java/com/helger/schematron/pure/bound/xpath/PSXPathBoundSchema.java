@@ -109,7 +109,9 @@ public class PSXPathBoundSchema extends AbstractPSBoundSchema
   private static XPathExpression _compileXPath (@Nonnull final XPath aXPathContext,
                                                 @Nonnull final String sXPathExpression) throws XPathExpressionException
   {
-    return aXPathContext.compile (sXPathExpression);
+    XPathExpression expr = aXPathContext.compile (sXPathExpression);
+    XPathEvaluationHelper.addMeasure(expr, sXPathExpression);
+    return expr;
   }
 
   @Nullable

@@ -16,6 +16,10 @@
  */
 package com.helger.schematron.pure.xpath;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -30,6 +34,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import com.helger.commons.lang.GenericReflection;
+import com.helger.commons.timing.StopWatch;
 import com.helger.xml.XMLHelper;
 
 import net.sf.saxon.dom.DocumentWrapper;
@@ -69,6 +74,28 @@ import net.sf.saxon.xpath.XPathExpressionImpl;
 @Immutable
 public final class XPathEvaluationHelper
 {
+  private static Map<XPathExpression, XPathMeasure> measures = new ConcurrentHashMap<>();
+
+  public static void addMeasure(XPathExpression xpathExpr, String text) {
+    measures.computeIfAbsent(xpathExpr, k -> new XPathMeasure(text, 0, 0));
+  }
+
+  public static void updateMeasure(XPathExpression xpathExpr, long time) {
+    XPathMeasure measure = measures.get(xpathExpr);
+    if (measure != null) {
+      measure.count++;
+      measure.time += time;
+    }
+  }
+
+  public static void printMeasures() {
+    for (XPathMeasure measure : measures.values()) {
+      if (measure.count > 0) {
+        System.out.println(measure.expression + ";" + measure.count + ";" + measure.time);
+      }
+    }
+  }
+
   // Separate class that only gets loaded if Saxon is on the classpath
   @Immutable
   private static final class SaxonEvaluator
@@ -259,8 +286,11 @@ public final class XPathEvaluationHelper
       aRealItem = SaxonEvaluator.getBaseUriFixed (aXPath, aNode, sBaseURI);
     }
 
+    StopWatch watch = StopWatch.createdStarted();
     // Unfortunately there is no "any" type
     final Object ret = aXPath.evaluate (aRealItem, aReturnType);
+    watch.stop();
+    updateMeasure(aXPath, watch.getNanos());
     return GenericReflection.uncheckedCast (ret);
   }
 
